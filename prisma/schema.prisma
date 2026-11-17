@@ -1,0 +1,126 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  LATE_CANCELLED
+  NO_SHOW
+  COMPLETED
+}
+
+model Service {
+  id           String    @id @default(cuid())
+  department   String
+  name         String
+  durationMins Int
+  priceCents   Int
+  active       Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  staff        StaffService[]
+  bookings     Booking[]
+}
+
+model Staff {
+  id        String    @id @default(cuid())
+  name      String
+  active    Boolean   @default(true)
+  services  StaffService[]
+  bookings  Booking[]
+}
+
+model StaffService {
+  staffId   String
+  serviceId String
+  staff     Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([staffId, serviceId])
+}
+
+model Client {
+  id                     String    @id @default(cuid())
+  name                   String
+  phone                  String    @unique
+  email                  String?
+  stripeCustomerId       String?
+  stripePaymentMethodId  String?
+  createdAt              DateTime  @default(now())
+  bookings               Booking[]
+}
+
+model Booking {
+  id                 String        @id @default(cuid())
+  clientId           String
+  serviceId          String
+  staffId            String
+  guestName          String?
+  manageToken        String?       @unique
+  startsAt           DateTime
+  endsAt             DateTime
+  status             BookingStatus @default(PENDING)
+  depositCents       Int           @default(0)
+  feeChargedCents    Int           @default(0)
+  stripePaymentId    String?
+  reminder24Sent     Boolean       @default(false)
+  reminder2Sent      Boolean       @default(false)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+  client             Client        @relation(fields: [clientId], references: [id])
+  service            Service       @relation(fields: [serviceId], references: [id])
+  staff              Staff         @relation(fields: [staffId], references: [id])
+
+  @@index([staffId, startsAt])
+}
+
+model OutboxMessage {
+  id         String   @id @default(cuid())
+  channel    String
+  toAddress  String
+  subject    String?
+  body       String
+  status     String   @default("LOGGED")
+  createdAt  DateTime @default(now())
+}
+
+model Conversation {
+  id             String        @id @default(cuid())
+  phone          String        @unique
+  handover       Boolean       @default(false)
+  handoverReason String?
+  lastMessageAt  DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+  messages       ChatMessage[]
+}
+
+model ChatMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           String
+  body           String
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+}
