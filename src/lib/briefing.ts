@@ -65,7 +65,7 @@ export async function buildBriefing(day: DateTime) {
     const fee = a.feeChargedCents > 0 ? `, fee ${money(a.feeChargedCents)}` : "";
     lines.push(`  - ${label}: ${(a.guestName ?? a.client.name)}, ${a.service.name}, ${when}${fee}`);
   }
-  if (fees > 0) lines.push(`  Cancellation fees to collect: ${money(fees)}`);
+  if (fees > 0) lines.push(`  Cancellation fees and forfeited deposits charged: ${money(fees)}`);
 
   return lines.join("\n");
 }
