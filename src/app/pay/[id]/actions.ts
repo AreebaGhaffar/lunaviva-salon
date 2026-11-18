@@ -1,12 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { DateTime } from "luxon";
 import { prisma } from "@/lib/prisma";
-import { payments } from "@/lib/payments";
-import { sendMessage } from "@/lib/notify";
-import { BUSINESS_TZ, HOLD_MINUTES } from "@/lib/availability";
-
+import { payments, usesStripe } from "@/lib/payments";
+import { HOLD_MINUTES } from "@/lib/availability";
+import { confirmBookingPaid } from "@/lib/booking-payment";
+import { createDepositCheckout } from "@/lib/stripe-checkout";
 
 export async function payDeposit(formData: FormData) {
   const id = String(formData.get("id") ?? "");
@@ -26,29 +25,21 @@ export async function payDeposit(formData: FormData) {
     redirect(`/pay/${id}`);
   }
 
+  if (usesStripe) {
+    const url = await createDepositCheckout(booking);
+    redirect(url);
+  }
+
   const result = await payments.collectDeposit({
     bookingId: booking.id,
     clientId: booking.clientId,
     amountCents: booking.depositCents,
   });
 
-  await prisma.booking.update({
-    where: { id },
-    data: { status: "CONFIRMED", stripePaymentId: result.paymentId },
-  });
-  await prisma.client.update({
-    where: { id: booking.clientId },
-    data: { stripePaymentMethodId: result.paymentMethodId },
-  });
-
-  const when = DateTime.fromJSDate(booking.startsAt, {
-    zone: BUSINESS_TZ,
-  }).toFormat("EEEE, LLL d 'at' h:mm a");
-
-  await sendMessage({
-    channel: "WHATSAPP",
-    to: booking.client.phone,
-    body: `Hi ${booking.guestName ?? booking.client.name}! Your ${booking.service.name} at Lunaviva Salon & Spa is confirmed for ${when}. Free cancellation or rescheduling is available up to 24 hours before your appointment. Manage your booking: ${process.env.APP_URL ?? "http://localhost:3000"}/manage/${booking.manageToken}`,
+  await confirmBookingPaid({
+    bookingId: booking.id,
+    paymentId: result.paymentId,
+    paymentMethodId: result.paymentMethodId,
   });
 
   redirect(`/pay/${id}`);

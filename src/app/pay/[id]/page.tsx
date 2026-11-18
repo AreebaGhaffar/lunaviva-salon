@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { DateTime } from "luxon";
 import { prisma } from "@/lib/prisma";
 import { BUSINESS_TZ, HOLD_MINUTES } from "@/lib/availability";
+import { usesStripe } from "@/lib/payments";
+import { confirmDepositFromSessionId } from "@/lib/stripe-checkout";
 import { payDeposit } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -16,16 +18,42 @@ function money(cents: number) {
 
 export default async function PayPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ session_id?: string }>;
 }) {
   const { id: rawId } = await params;
+  const { session_id: sessionId } = await searchParams;
   const id = rawId.replace(/[^a-zA-Z0-9]/g, "");
-  const booking = await prisma.booking.findUnique({
-    where: { id },
-    include: { service: true, staff: true },
-  });
+
+  const load = () =>
+    prisma.booking.findUnique({
+      where: { id },
+      include: { service: true, staff: true },
+    });
+
+  let booking = await load();
   if (!booking) notFound();
+
+  // Coming back from Stripe: confirm the payment straight away.
+  if (
+    usesStripe &&
+    booking.status === "PENDING" &&
+    sessionId &&
+    /^cs_[A-Za-z0-9_]+$/.test(sessionId)
+  ) {
+    try {
+      await confirmDepositFromSessionId(sessionId, booking.id);
+    } catch (error) {
+      console.error("Could not confirm Stripe payment", error);
+    }
+    booking = await load();
+    if (!booking) notFound();
+  }
+
+  const testMode =
+    !usesStripe || (process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_test_");
 
   const expired =
     booking.status === "PENDING" &&
@@ -77,12 +105,14 @@ export default async function PayPage({
                   type="submit"
                   className="w-full rounded bg-plum px-4 py-3 text-sm font-medium text-gold"
                 >
-                  Pay deposit (test mode)
+                  {testMode ? "Pay deposit (test mode)" : "Pay deposit"}
                 </button>
               </form>
-              <p className="mt-2 text-center text-xs text-plum/50">
-                Test mode: no real card is charged.
-              </p>
+              {testMode && (
+                <p className="mt-2 text-center text-xs text-plum/50">
+                  Test mode: no real card is charged.
+                </p>
+              )}
             </>
           )}
 
