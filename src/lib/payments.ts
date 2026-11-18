@@ -31,6 +31,9 @@ const mock: PaymentProvider = {
       paymentMethodId: `mock_pm_${randomUUID()}`,
     };
   },
+  // async chargeSavedCard() {
+  //   throw new Error("TEST: card declined");
+  // },
   async chargeSavedCard() {
     return { paymentId: `mock_pi_${randomUUID()}` };
   },
