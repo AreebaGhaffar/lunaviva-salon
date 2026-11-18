@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { sendDueReminders } from "@/lib/reminders";
+import { markNoShows } from "@/lib/noshow";
 import { safeEqual } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -25,5 +26,6 @@ export async function GET(request: Request) {
   }
 
   const result = await sendDueReminders(now);
-  return NextResponse.json({ ok: true, ...result });
+  const noShowResult = await markNoShows(now);
+  return NextResponse.json({ ok: true, ...result, ...noShowResult });
 }
