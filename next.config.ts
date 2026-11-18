@@ -1,14 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  turbopack: {
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
+  outputFileTracingIncludes: {
+    "/": ["./src/generated/prisma/**/*"],
+    "/**/*": ["./src/generated/prisma/**/*"],
   },
 };
 
