@@ -17,9 +17,10 @@ Brand colors: Deep Plum `#3B2042` and Polished Gold `#B89753`.
 | Cancellation rules and automatic no-show | Done |
 | Stripe deposits, saved card, late fees, refunds | Working (tested in a Stripe sandbox) |
 | Daily briefing by email | Working (tested with Resend) |
-| WhatsApp AI receptionist and human handover | Built, tested in a simulator only |
-| Reminders (24 hours and 2 hours) | Built, saved to the Outbox (not sent over WhatsApp yet) |
-| Real WhatsApp sending and receiving | Not built (needs the client's Meta account) |
+| WhatsApp AI receptionist and human handover | Built, tested in the simulator |
+| WhatsApp number and credentials managed in the admin area (add, change, delete, on/off) | Done, tested with a fake token (real delivery needs the client's Meta account) |
+| WhatsApp message templates for confirmations, reminders, briefing | Built (names set in the admin area; needs templates approved by Meta) |
+| Reminders (24 hours and 2 hours) | Done (sent over WhatsApp once it is switched on) |
 | Deployment | Held until the client chooses hosting |
 
 ## Tech stack
@@ -38,11 +39,10 @@ Requirements: Node.js 24, PostgreSQL 17, Git.
 ```powershell
 cd D:\upwork\Salon\lunaviva-salon
 npm install
-copy .env.example .env
 ```
 
-Open `.env` and fill in the values (see "Settings" below). Then create the
-database tables and start the app:
+Create a file named `.env` in the project folder and fill in the values (see
+"Settings" below). Then create the database tables and start the app:
 
 ```powershell
 npx prisma migrate deploy
@@ -73,7 +73,8 @@ If the database errors, start the service in an administrator PowerShell:
 
 ## Settings (.env)
 
-Names only. Never commit real values. Copy `.env.example` to `.env`.
+Names only. Put the real values in a file named `.env` in the project root.
+Never commit or share that file.
 
 | Setting | Purpose |
 | --- | --- |
@@ -83,6 +84,7 @@ Names only. Never commit real values. Copy `.env.example` to `.env`.
 | `CRON_SECRET` | Protects the scheduled-job addresses |
 | `APP_URL` | Site address used in links (`http://localhost:3000` locally) |
 | `ADMIN_WHATSAPP`, `ADMIN_EMAIL` | Where the briefing and alerts go |
+| `SESSION_SECRET` also encrypts the saved WhatsApp token and app secret | Changing it means entering them again in the admin area |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | AI receptionist (`gpt-4o` for delivery) |
 | `OPENAI_BASE_URL`, `OPENAI_REASONING_EFFORT` | Development only (alternative provider). Leave empty for OpenAI. |
 | `PAYMENTS_PROVIDER` | Empty = simulated payments, `stripe` = real Stripe |
@@ -99,9 +101,10 @@ Names only. Never commit real values. Copy `.env.example` to `.env`.
 - Public: `/` (live services), `/book`, `/pay/[id]` (deposit), `/manage/[token]`
   (client cancel and reschedule), `/login`.
 - Admin (login required): `/admin/bookings`, `/admin/services`, `/admin/staff`,
-  `/admin/inbox`, `/admin/outbox`, `/admin/simulator`.
+  `/admin/inbox`, `/admin/outbox`, `/admin/simulator`, `/admin/whatsapp`,
+  `/admin/whatsapp/templates`.
 - API: `/api/availability`, `/api/cron/briefing`, `/api/cron/reminders`,
-  `/api/cron/release-holds`, `/api/webhooks/stripe`.
+  `/api/cron/release-holds`, `/api/webhooks/stripe`, `/api/webhooks/whatsapp`.
 
 ### Business rules
 
@@ -143,17 +146,51 @@ Stripe test card: `4242 4242 4242 4242`, any future expiry, any CVC.
 ### Messages
 
 `src/lib/notify.ts` saves every WhatsApp or email message to the Outbox first.
-With `EMAIL_PROVIDER=resend`, emails are also sent through Resend (status SENT
-or FAILED). WhatsApp messages are only saved to the Outbox for now.
+The Outbox page shows a status on each row:
+
+- LOGGED: saved only, nothing was sent (the integration is off or not set up).
+- SENT: delivered to WhatsApp or email.
+- FAILED: sending was tried and the provider refused it. The booking or
+  cancellation still completes.
+
+With `EMAIL_PROVIDER=resend`, emails are also sent through Resend. WhatsApp is
+sent when it is switched on in the admin area (see below).
 
 ### WhatsApp AI receptionist
 
-- Test it in `/admin/simulator`.
+- Test it in `/admin/simulator`. When WhatsApp is switched on, simulator replies
+  are also sent to the real number typed there, so use only your own number.
 - The AI can call: `list_services`, `check_availability`, `create_booking`,
   `get_my_bookings`, `handover_to_human`. It can never charge, refund or cancel.
 - A client asking for a person ("human", "can I speak to a manager") hands the
   chat over to the Inbox, where staff reply and click Resume assistant.
 - Delivery needs the client's OpenAI key with `OPENAI_MODEL=gpt-4o`.
+
+### WhatsApp setup (admin area, no code changes)
+
+The owner manages WhatsApp at `/admin/whatsapp`:
+
+- Add, change or delete the number, phone number id, access token and app
+  secret at any time. A blank token or secret field keeps the saved one.
+- Turn the integration on or off with one tick box.
+- Everything works normally when nothing is configured: messages are only
+  saved in the Outbox.
+- Tokens and secrets are stored encrypted (AES-256-GCM, key derived from
+  `SESSION_SECRET`).
+- The page shows the webhook address and verify token to paste into Meta
+  (WhatsApp, Configuration; subscribe to the messages field). Incoming
+  messages need the app secret, and their signature is checked.
+- A test box sends a message to a phone number. The person must have messaged
+  the WhatsApp number in the last 24 hours.
+
+WhatsApp only allows free text within 24 hours after the client's last message.
+Confirmations, reminders and the briefing usually go out later, so they need
+templates approved by Meta. At `/admin/whatsapp/templates` the owner types the
+template name for the confirmation, the 24-hour reminder, the 2-hour reminder
+and the daily briefing, with the language code. The page shows the exact text
+to submit to Meta for each one. If a name is empty, or the template send fails,
+the system tries plain text. Template texts must not start or end with a
+variable.
 
 ### Scheduled jobs
 
@@ -202,14 +239,17 @@ open `RateLimit` and delete the row whose key starts with `login:`.
 7. Switch the AI to GPT-4o, empty `OPENAI_BASE_URL` and `OPENAI_REASONING_EFFORT`,
    retest a full booking chat.
 8. Set up the scheduled jobs above.
-9. Connect WhatsApp (webhook with signature check, sending code, approved message
-   templates for reminders and the briefing). Not built yet.
+9. Connect WhatsApp in `/admin/whatsapp`: enter the client's number, phone number
+   id, a permanent access token and the app secret, paste the webhook address and
+   verify token into Meta, then create the four message templates in Meta and
+   type their names in `/admin/whatsapp/templates`.
 10. Point the domain, run the final tests, hand the owner the admin guide.
 
 Final tests: pay and confirm a booking, cancel more than 24 hours ahead (refund),
 cancel 12 to 24 hours ahead (50% fee), a failing card (booking still cancels, owner
 alerted), a no-show after 15 minutes, a full WhatsApp booking and a human
-handover, reminders, and the 6:00 AM briefing.
+handover, a template message for each of the four types, reminders, and the
+6:00 AM briefing.
 
 ## Decisions the client still needs to confirm
 
@@ -230,11 +270,17 @@ These are assumptions, each defined in one place in the code:
 
 - Stripe was tested only in a sandbox, and the payment webhook is untested
   (the return page confirms payments today).
-- WhatsApp runs only in the simulator. Real sending and receiving are not built.
+- WhatsApp sending and receiving are built but were only tested with a fake token
+  and the simulator. Real delivery and templates need the client's Meta account.
+- The pay page always says a confirmation was sent to WhatsApp, even when
+  WhatsApp is off or sending failed. The Outbox status shows the truth.
+- The Graph API version is the constant `v23.0` in `src/lib/whatsapp.ts` and
+  `src/lib/whatsapp-template.ts`. Check Meta's current version when going live.
 - The AI was developed against a Google Gemini model while the OpenAI account had
   no credit. Retest with GPT-4o.
 - Allow about half a day of real-world fixes once live accounts are connected.
 - The Inbox and Outbox show only the latest 50 entries, with no search.
+- Deleting the WhatsApp connection does not delete the template names.
 - The pay page address uses the booking id instead of the private booking token.
 - VS Code shows a harmless warning for the Tailwind `@theme` rule only if the
   Tailwind loader is working in the editor; if the running app prints
@@ -242,7 +288,8 @@ These are assumptions, each defined in one place in the code:
 
 ## Security
 
-- Never commit `.env`. Only `.env.example` (names and fake values) is committed.
+- Never commit or share `.env`. When sharing the project as a zip, leave out
+  `.env`, `node_modules` and `.next`.
 - Generate new secrets for every live site and rotate any key that was ever shown
   in a screenshot or chat.
 - Do not put secrets in code, issues or chat messages.
