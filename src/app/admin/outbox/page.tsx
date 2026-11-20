@@ -6,6 +6,12 @@ import { BUSINESS_TZ } from "@/lib/availability";
 
 export const dynamic = "force-dynamic";
 
+function statusStyle(status: string) {
+  if (status === "SENT") return "bg-green-100 text-green-800";
+  if (status === "FAILED") return "bg-red-100 text-red-800";
+  return "bg-plum/10 text-plum";
+}
+
 export default async function OutboxPage() {
   await requireAdmin();
 
@@ -24,17 +30,26 @@ export default async function OutboxPage() {
           </Link>
         </div>
         <p className="mt-1 text-sm text-plum/60">
-          Test mode: messages are saved here instead of being sent.
+          Every message is saved here. LOGGED means it was only saved, SENT means
+          it was delivered to WhatsApp or email, FAILED means sending was
+          attempted and the provider refused it.
         </p>
 
         <div className="mt-8 space-y-4">
           {messages.map((m) => (
             <div key={m.id} className="rounded-lg border border-gold/40 p-4">
-              <div className="flex items-center justify-between text-xs text-gold">
+              <div className="flex items-center justify-between gap-3 text-xs text-gold">
                 <span>
                   {m.channel} to {m.toAddress}
                 </span>
-                <span>
+                <span className="flex items-center gap-2">
+                  <span
+                    className={`rounded px-2 py-0.5 text-[10px] font-semibold ${statusStyle(
+                      String(m.status)
+                    )}`}
+                  >
+                    {String(m.status)}
+                  </span>
                   {DateTime.fromJSDate(m.createdAt, { zone: BUSINESS_TZ }).toFormat(
                     "LLL d, h:mm a"
                   )}
