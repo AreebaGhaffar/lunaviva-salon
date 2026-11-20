@@ -7,7 +7,7 @@ const HOUR = 3_600_000;
 
 function when(date: Date) {
   return DateTime.fromJSDate(date, { zone: BUSINESS_TZ }).toFormat(
-    "EEEE, LLL d 'at' h:mm a"
+    "EEEE, LLL d 'at' h:mm a",
   );
 }
 
@@ -36,6 +36,10 @@ export async function sendDueReminders(now: DateTime) {
       channel: "WHATSAPP",
       to: b.client.phone,
       body: `Hi ${b.client.name}! Reminder: your ${b.service.name} at Lunaviva Salon & Spa is ${when(b.startsAt)}. Changes or cancellations within 24 hours of your appointment may incur a fee.`,
+      template: {
+        kind: "reminder24",
+        params: [b.client.name, b.service.name, when(b.startsAt)],
+      },
     });
     await prisma.booking.update({
       where: { id: b.id },
@@ -63,7 +67,15 @@ export async function sendDueReminders(now: DateTime) {
     await sendMessage({
       channel: "WHATSAPP",
       to: b.client.phone,
-      body: `Hi ${(b.guestName ?? b.client.name)}! Your ${b.service.name} at Lunaviva Salon & Spa starts in about 2 hours (${when(b.startsAt)}). See you soon!`,
+      body: `Hi ${b.guestName ?? b.client.name}! Your ${b.service.name} at Lunaviva Salon & Spa starts in about 2 hours (${when(b.startsAt)}). See you soon!`,
+      template: {
+        kind: "reminder2",
+        params: [
+          b.guestName ?? b.client.name,
+          b.service.name,
+          when(b.startsAt),
+        ],
+      },
     });
     await prisma.booking.update({
       where: { id: b.id },

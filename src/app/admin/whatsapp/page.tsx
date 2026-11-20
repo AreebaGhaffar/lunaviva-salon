@@ -40,17 +40,24 @@ export default async function AdminWhatsAppPage({
   const appUrl = process.env.APP_URL ?? "http://localhost:3000";
   const input =
     "w-full rounded border border-plum/20 px-3 py-2 text-sm text-plum outline-none focus:border-gold";
-  const button =
-    "rounded bg-plum px-5 py-2 text-sm font-medium text-gold";
+  const button = "rounded bg-plum px-5 py-2 text-sm font-medium text-gold";
 
   return (
     <main className="min-h-screen bg-white px-6 py-10">
       <div className="mx-auto max-w-3xl">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-plum">WhatsApp</h1>
-          <Link href="/admin/inbox" className="text-sm text-gold underline">
-            Inbox
-          </Link>
+          <div className="flex gap-4 text-sm">
+            <Link
+              href="/admin/whatsapp/templates"
+              className="text-gold underline"
+            >
+              Templates
+            </Link>
+            <Link href="/admin/inbox" className="text-gold underline">
+              Inbox
+            </Link>
+          </div>
         </div>
         <p className="mt-1 text-sm text-plum/60">
           Connect your WhatsApp Business number so the AI receptionist can chat
@@ -90,7 +97,9 @@ export default async function AdminWhatsAppPage({
           </p>
           <p className="mt-1">
             <span className="font-semibold">Sending messages:</span>{" "}
-            {config.enabled && hasCredentials ? "On" : "Off (messages are only saved in the Outbox)"}
+            {config.enabled && hasCredentials
+              ? "On"
+              : "Off (messages are only saved in the Outbox)"}
           </p>
           <p className="mt-1">
             <span className="font-semibold">Receiving messages:</span>{" "}

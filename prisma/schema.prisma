@@ -136,3 +136,13 @@ model WhatsAppSettings {
   verifyToken    String?
   updatedAt      DateTime @updatedAt
 }
+
+model WhatsAppTemplates {
+  id         String   @id @default("default")
+  language   String   @default("en_US")
+  reminder24 String?
+  reminder2  String?
+  confirmation String?
+  briefing     String?
+  updatedAt  DateTime @updatedAt
+}

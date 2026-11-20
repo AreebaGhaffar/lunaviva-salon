@@ -75,8 +75,19 @@ export async function sendDailyBriefing(day: DateTime) {
 
   await sendMessage({
     channel: "WHATSAPP",
-    to: process.env.ADMIN_WHATSAPP ?? "+15550000001",
+        to: process.env.ADMIN_WHATSAPP ?? "+15550000001",
     body: text,
+    template: {
+      kind: "briefing",
+      params: [
+        text
+          .split("\n")
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .join(" | ")
+          .slice(0, 1000),
+      ],
+    },
   });
   await sendMessage({
     channel: "EMAIL",

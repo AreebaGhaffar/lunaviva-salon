@@ -36,6 +36,15 @@ export async function confirmBookingPaid(args: {
     channel: "WHATSAPP",
     to: booking.client.phone,
     body: `Hi ${booking.guestName ?? booking.client.name}! Your ${booking.service.name} at Lunaviva Salon & Spa is confirmed for ${when}. Free cancellation or rescheduling is available up to 24 hours before your appointment. Manage your booking: ${process.env.APP_URL ?? "http://localhost:3000"}/manage/${booking.manageToken}`,
+    template: {
+      kind: "confirmation",
+      params: [
+        booking.guestName ?? booking.client.name,
+        booking.service.name,
+        when,
+        `${process.env.APP_URL ?? "http://localhost:3000"}/manage/${booking.manageToken}`,
+      ],
+    },
   });
 
   return true;

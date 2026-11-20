@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendEmailViaResend } from "@/lib/email";
 import { sendWhatsAppText } from "@/lib/whatsapp";
+import { sendWhatsAppTemplate } from "@/lib/whatsapp-template";
 import {
   canSend,
   getWhatsAppConfig,
@@ -12,6 +13,10 @@ export type OutgoingMessage = {
   to: string;
   subject?: string;
   body: string;
+  template?: {
+    kind: "confirmation" | "reminder24" | "reminder2" | "briefing";
+    params: string[];
+  };
 };
 
 async function markStatus(id: string, status: "SENT" | "FAILED") {
@@ -28,6 +33,30 @@ async function deliverWhatsApp(message: OutgoingMessage, outboxId: string) {
     return;
   }
   if (!canSend(config)) return;
+
+  if (message.template) {
+    try {
+      const templates = await prisma.whatsAppTemplates.findUnique({
+        where: { id: "default" },
+      });
+      const name = templates?.[message.template.kind];
+      if (name) {
+        await sendWhatsAppTemplate({
+          phoneNumberId: config.phoneNumberId!,
+          accessToken: config.accessToken!,
+          to: message.to,
+          name,
+          language: templates?.language ?? "en_US",
+          params: message.template.params,
+        });
+        await markStatus(outboxId, "SENT");
+        return;
+      }
+    } catch (error) {
+      // Fall through and try plain text (works inside the 24-hour window).
+      console.error("WhatsApp template send failed", error);
+    }
+  }
 
   try {
     await sendWhatsAppText({
