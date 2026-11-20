@@ -16,6 +16,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
             <Link href="/admin/inbox">Inbox</Link>
             <Link href="/admin/services">Services</Link>
             <Link href="/admin/staff">Staff</Link>
+            <Link href="/admin/whatsapp">WhatsApp</Link>
             <Link href="/admin/outbox">Outbox</Link>
             <Link href="/admin/simulator">Simulator</Link>
             <form action={logout} className="ml-auto">

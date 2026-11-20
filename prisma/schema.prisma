@@ -125,3 +125,14 @@ model RateLimit {
   count   Int
   resetAt DateTime
 }
+
+model WhatsAppSettings {
+  id             String   @id @default("default")
+  enabled        Boolean  @default(false)
+  displayNumber  String?
+  phoneNumberId  String?
+  accessTokenEnc String?
+  appSecretEnc   String?
+  verifyToken    String?
+  updatedAt      DateTime @updatedAt
+}
