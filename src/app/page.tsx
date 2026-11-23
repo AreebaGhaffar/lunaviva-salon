@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +28,13 @@ export default async function Home() {
           priority
         />
 
+        <Link
+          href="/book"
+          className="mt-8 rounded bg-plum px-8 py-3 text-sm font-medium tracking-widest text-gold"
+        >
+          BOOK NOW
+        </Link>
+
         <h2 className="mt-10 tracking-[0.3em] text-sm text-gold">
           OUR SERVICES
         </h2>
@@ -48,8 +56,15 @@ export default async function Home() {
                 {formatPrice(s.priceCents)}
               </p>
             </div>
-          ))}
+                    ))}
         </div>
+
+        <Link
+          href="/book"
+          className="mt-10 rounded bg-plum px-8 py-3 text-sm font-medium tracking-widest text-gold"
+        >
+          BOOK NOW
+        </Link>
       </div>
     </main>
   );
